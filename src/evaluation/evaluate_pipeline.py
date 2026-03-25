@@ -23,6 +23,7 @@ from .metrics import (
     per_attack_metrics,
     per_class_metrics,
 )
+from .visualizations import create_evaluation_dashboard, save_visualization_summary
 from sklearn.metrics import confusion_matrix
 
 
@@ -301,3 +302,39 @@ def save_eval_report(result: EvalResult, out_path: Path) -> None:
     }
     with open(out_path, "w") as f:
         json.dump(report, f, indent=2)
+
+
+def generate_evaluation_visualizations(
+    result: EvalResult,
+    prepared: PreparedData,
+    y_true: np.ndarray,
+    y_pred: np.ndarray,
+    y_score: np.ndarray,
+    shap_result: Optional[dict] = None,
+    outputs_dir: Optional[Path] = None,
+) -> dict:
+    """
+    Generate comprehensive evaluation visualizations and save them to outputs_dir.
+    
+    Returns:
+        dict: Paths to saved visualization files
+    """
+    if outputs_dir is None:
+        from ..config import Paths
+        outputs_dir = Paths.auto().outputs_dir
+    
+    viz_dir = outputs_dir / "visualizations"
+    saved_plots = create_evaluation_dashboard(
+        result, y_true, y_pred, y_score, shap_result, viz_dir
+    )
+    
+    # Save visualization summary
+    summary_path = viz_dir / "visualization_summary.json"
+    save_visualization_summary(saved_plots, summary_path)
+    
+    print(f"  Generated {len(saved_plots)} visualizations in {viz_dir}")
+    for name, path in saved_plots.items():
+        if path:
+            print(f"    {name}: {path.name}")
+    
+    return saved_plots

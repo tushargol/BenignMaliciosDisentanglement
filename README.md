@@ -142,11 +142,22 @@ BenignVsMalicious/
 
 After running the pipeline, you'll find:
 
+### Core Results
 - `outputs/prepared.pkl` – Processed datasets
 - `outputs/models/` – Trained models (autoencoder, classifier, baseline)
 - `outputs/eval_report.json` – Comprehensive performance metrics
 - `outputs/shap_top_features.json` – Feature importance analysis
 - `outputs/auto_tune_results.csv` – Threshold optimization results
+
+### Visualizations
+- `outputs/visualizations/` – Generated evaluation plots:
+  - `confusion_matrix.png` – Raw confusion matrix
+  - `confusion_matrix_normalized.png` – Normalized confusion matrix
+  - `per_class_metrics.png` – Precision, recall, F1 by class
+  - `per_attack_recall.png` – Detection rate by attack family
+  - `roc_pr_curves.png` – ROC and Precision-Recall curves
+  - `shap_feature_importance.png` – Top contributing features
+  - `visualization_summary.json` – Summary of generated plots
 
 ## Configuration
 
@@ -181,6 +192,29 @@ f41: 0.0117    # Most important feature
 f83: 0.0116    # Second most important
 f13: 0.0106    # Third most important
 ```
+
+## Visualizations
+
+The pipeline automatically generates comprehensive evaluation visualizations:
+
+### Generated Plots
+- **Confusion Matrices**: Both raw counts and normalized percentages
+- **Per-Class Metrics**: Bar charts comparing precision, recall, and F1 scores
+- **Per-Attack Analysis**: Detection rates for each attack family with sample sizes
+- **ROC/PR Curves**: Binary detection performance for malicious vs non-malicious
+- **SHAP Feature Importance**: Visual ranking of top contributing features
+
+### Accessing Visualizations
+All plots are saved as high-resolution PNG files in `outputs/visualizations/`:
+- Professional quality for reports and presentations
+- Clear legends and annotations for easy interpretation
+- Consistent styling across all plots
+
+### Customization
+Visualizations can be customized by modifying `src/evaluation/visualizations.py`:
+- Color schemes and styling
+- Plot layouts and formats
+- Additional metrics and analyses
 
 ## Ablation Studies
 

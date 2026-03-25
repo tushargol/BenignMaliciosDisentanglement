@@ -217,6 +217,7 @@ def main() -> None:
     if args.stage in ("evaluate", "all"):
         from src.evaluation.evaluate_pipeline import (
             explain_with_shap,
+            generate_evaluation_visualizations,
             run_evaluation,
             save_eval_report,
         )
@@ -364,23 +365,35 @@ def main() -> None:
 
         report_name = "eval_report_ae_only.json" if args.ablation == "stage1_only" else "eval_report.json"
         save_eval_report(result, paths.outputs_dir / report_name)
-        print(f"\n  Saved {paths.outputs_dir / 'eval_report.json'}")
+        print(f"\n  Saved {paths.outputs_dir / report_name}")
 
-        # SHAP interpretability
-        if clf is not None:
-            anom_mask = prep.y_test >= 1
-            if anom_mask.sum() > 0:
-                X_anom = prep.X_test[anom_mask]
-                shap_result = explain_with_shap(clf, X_anom, prep.feature_cols, n_samples=min(100, len(X_anom)))
-                if "error" not in shap_result:
-                    print("\n--- Top features (SHAP) ---")
-                    for f in shap_result.get("top_features", [])[:5]:
-                        print(f"  {f['name']}: {f['importance']:.4f}")
-                    with open(paths.outputs_dir / "shap_top_features.json", "w") as f:
-                        import json
-                        json.dump(shap_result, f, indent=2)
-                else:
-                    print("  SHAP skipped:", shap_result.get("error"))
+        # Generate visualizations
+        if "y_pred" in result.overall and "y_score" in result.overall:
+            print("\n[Visualizations] Generating evaluation plots...")
+            y_pred = np.array(result.overall["y_pred"])
+            y_score = np.array(result.overall["y_score"])
+            
+            # SHAP interpretability
+            shap_result = None
+            if clf is not None:
+                anom_mask = prep.y_test >= 1
+                if anom_mask.sum() > 0:
+                    X_anom = prep.X_test[anom_mask]
+                    shap_result = explain_with_shap(clf, X_anom, prep.feature_cols, n_samples=min(100, len(X_anom)))
+                    if "error" not in shap_result:
+                        print("\n--- Top features (SHAP) ---")
+                        for f in shap_result.get("top_features", [])[:5]:
+                            print(f"  {f['name']}: {f['importance']:.4f}")
+                        with open(paths.outputs_dir / "shap_top_features.json", "w") as f:
+                            import json
+                            json.dump(shap_result, f, indent=2)
+                    else:
+                        print("  SHAP skipped:", shap_result.get("error"))
+            
+            # Generate all visualizations
+            viz_plots = generate_evaluation_visualizations(
+                result, prep, prep.y_test, y_pred, y_score, shap_result, paths.outputs_dir
+            )
 
 
 if __name__ == "__main__":
