@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import warnings
 from typing import Optional, Dict, Any
 import numpy as np
 
@@ -19,6 +20,7 @@ class ExperimentTracker:
         """
         self.tracking_backend = tracking_backend
         self._initialized = False
+        self._available = True  # Set to False if initialization fails
         
     def init_experiment(self, experiment_name: str, config: Dict[str, Any]):
         """Initialize experiment tracking."""
@@ -33,7 +35,7 @@ class ExperimentTracker:
     
     def log_params(self, params: Dict[str, Any]):
         """Log hyperparameters."""
-        if not self._initialized:
+        if not self._initialized or not self._available:
             return
         if self.tracking_backend == "mlflow":
             self._log_params_mlflow(params)
@@ -42,7 +44,7 @@ class ExperimentTracker:
     
     def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None):
         """Log metrics."""
-        if not self._initialized:
+        if not self._initialized or not self._available:
             return
         if self.tracking_backend == "mlflow":
             self._log_metrics_mlflow(metrics, step)
@@ -51,7 +53,7 @@ class ExperimentTracker:
     
     def log_artifact(self, artifact_path: str, artifact_name: Optional[str] = None):
         """Log artifact (model, visualization, etc.)."""
-        if not self._initialized:
+        if not self._initialized or not self._available:
             return
         if self.tracking_backend == "mlflow":
             self._log_artifact_mlflow(artifact_path, artifact_name)
@@ -60,7 +62,7 @@ class ExperimentTracker:
     
     def end_run(self):
         """End experiment run."""
-        if not self._initialized:
+        if not self._initialized or not self._available:
             return
         if self.tracking_backend == "mlflow":
             self._end_run_mlflow()
@@ -76,9 +78,11 @@ class ExperimentTracker:
             mlflow.start_run()
             mlflow.log_params(config)
         except ImportError:
-            print("MLflow not installed. Install with: pip install mlflow")
+            warnings.warn("MLflow not installed. Install with: pip install mlflow", stacklevel=2)
+            self._available = False
         except Exception as e:
-            print(f"Failed to initialize MLflow: {e}")
+            warnings.warn(f"Failed to initialize MLflow: {e}", stacklevel=2)
+            self._available = False
     
     def _log_params_mlflow(self, params: Dict[str, Any]):
         """Log parameters to MLflow."""
@@ -86,7 +90,7 @@ class ExperimentTracker:
             import mlflow
             mlflow.log_params(params)
         except Exception as e:
-            print(f"Failed to log params to MLflow: {e}")
+            warnings.warn(f"Failed to log params to MLflow: {e}", stacklevel=2)
     
     def _log_metrics_mlflow(self, metrics: Dict[str, float], step: Optional[int] = None):
         """Log metrics to MLflow."""
@@ -94,7 +98,7 @@ class ExperimentTracker:
             import mlflow
             mlflow.log_metrics(metrics, step=step)
         except Exception as e:
-            print(f"Failed to log metrics to MLflow: {e}")
+            warnings.warn(f"Failed to log metrics to MLflow: {e}", stacklevel=2)
     
     def _log_artifact_mlflow(self, artifact_path: str, artifact_name: Optional[str] = None):
         """Log artifact to MLflow."""
@@ -102,7 +106,7 @@ class ExperimentTracker:
             import mlflow
             mlflow.log_artifact(artifact_path, artifact_name)
         except Exception as e:
-            print(f"Failed to log artifact to MLflow: {e}")
+            warnings.warn(f"Failed to log artifact to MLflow: {e}", stacklevel=2)
     
     def _end_run_mlflow(self):
         """End MLflow run."""
@@ -110,7 +114,7 @@ class ExperimentTracker:
             import mlflow
             mlflow.end_run()
         except Exception as e:
-            print(f"Failed to end MLflow run: {e}")
+            warnings.warn(f"Failed to end MLflow run: {e}", stacklevel=2)
     
     # Weights & Biases-specific methods
     def _init_wandb(self, experiment_name: str, config: Dict[str, Any]):
@@ -119,9 +123,11 @@ class ExperimentTracker:
             import wandb
             wandb.init(project=experiment_name, config=config)
         except ImportError:
-            print("Weights & Biases not installed. Install with: pip install wandb")
+            warnings.warn("Weights & Biases not installed. Install with: pip install wandb", stacklevel=2)
+            self._available = False
         except Exception as e:
-            print(f"Failed to initialize W&B: {e}")
+            warnings.warn(f"Failed to initialize W&B: {e}", stacklevel=2)
+            self._available = False
     
     def _log_params_wandb(self, params: Dict[str, Any]):
         """Log parameters to W&B."""
@@ -129,7 +135,7 @@ class ExperimentTracker:
             import wandb
             wandb.config.update(params)
         except Exception as e:
-            print(f"Failed to log params to W&B: {e}")
+            warnings.warn(f"Failed to log params to W&B: {e}", stacklevel=2)
     
     def _log_metrics_wandb(self, metrics: Dict[str, float], step: Optional[int] = None):
         """Log metrics to W&B."""
@@ -137,7 +143,7 @@ class ExperimentTracker:
             import wandb
             wandb.log(metrics, step=step)
         except Exception as e:
-            print(f"Failed to log metrics to W&B: {e}")
+            warnings.warn(f"Failed to log metrics to W&B: {e}", stacklevel=2)
     
     def _log_artifact_wandb(self, artifact_path: str, artifact_name: Optional[str] = None):
         """Log artifact to W&B."""
@@ -145,7 +151,7 @@ class ExperimentTracker:
             import wandb
             wandb.save(artifact_path)
         except Exception as e:
-            print(f"Failed to log artifact to W&B: {e}")
+            warnings.warn(f"Failed to log artifact to W&B: {e}", stacklevel=2)
     
     def _end_run_wandb(self):
         """End W&B run."""
@@ -153,7 +159,7 @@ class ExperimentTracker:
             import wandb
             wandb.finish()
         except Exception as e:
-            print(f"Failed to end W&B run: {e}")
+            warnings.warn(f"Failed to end W&B run: {e}", stacklevel=2)
 
 
 class SimpleTracker:

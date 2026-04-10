@@ -239,9 +239,18 @@ BenignVsMalicious/
 │   │   ├── evaluate_pipeline.py
 │   │   ├── metrics.py
 │   │   ├── threshold_sweep.py
+│   │   ├── cross_validation.py
 │   │   └── visualizations.py
 │   ├── features/              # Feature extraction and engineering
 │   │   └── feature_engineering.py
+│   ├── demo/                  # Modular demo components
+│   │   ├── data_loader.py     # SherlockDemoDataLoader class
+│   │   ├── predictor.py       # DemoPredictor class
+│   │   ├── visualizer.py      # DemoVisualizer class
+│   │   └── reporter.py        # DemoReporter class
+│   ├── pipeline/              # Pipeline exports (re-exports from training/evaluation)
+│   │   └── __init__.py
+│   ├── experiment_tracking.py  # MLflow/W&B integration
 │   └── utils/                 # Helper utilities
 │       ├── logging_utils.py
 │       ├── paths.py
@@ -249,6 +258,7 @@ BenignVsMalicious/
 ├── deployment/                # Docker and deployment configuration
 │   ├── docker-compose.yml
 │   ├── services/
+│   │   └── power-autoencoder/  # Autoencoder service (only service with Dockerfile)
 │   ├── deploy.sh
 │   ├── QUICK_START.md
 │   └── SECURITY.md
@@ -257,15 +267,18 @@ BenignVsMalicious/
 ├── outputs/                   # Generated models, results, reports
 │   ├── models/               # Trained models (.pt files)
 │   ├── visualizations/       # Evaluation plots
-│   ├── demo_report_*.txt     # Demo reports
-│   ├── enhanced_demo_*.txt   # Enhanced demo outputs
+│   ├── demo/                 # Demo outputs
 │   └── *.json, *.csv         # Evaluation results
 ├── scripts/                   # Additional utility scripts
+│   └── diag_attack_signal.py  # Attack signal diagnostic
+├── tests/                     # Unit tests
+│   └── test_pipeline.py       # Pipeline logic tests
 ├── notebooks/                 # Jupyter notebooks for analysis
 ├── 02-Semiurban/              # Sherlock dataset (or data/02-Semiurban/)
-├── demo_improved.py           # Enhanced demo with real Sherlock data
+├── demo_improved.py           # Enhanced demo entry point (refactored to modular structure)
+├── demo.py                    # Demo alias (deprecated)
 ├── run_pipeline.py            # Main pipeline script
-├── requirements.txt           # Python dependencies
+├── requirements.txt           # Python dependencies (with pinned versions)
 ├── capstone_project_details.md # Comprehensive project documentation
 ├── deployment_strategy.md     # Deployment strategy documentation
 ├── report_outline.md          # Research report outline
@@ -968,11 +981,9 @@ Pipeline has been refactored for independent Stage 1 and Stage 2 execution.
 #### Testing Modular Pipeline
 
 ```python
-from src.pipeline.stage1 import train_stage1, load_stage1, infer_stage1
-from src.pipeline.stage2 import train_stage2, load_stage2, infer_stage2
+from src.training.train_autoencoder import train_autoencoder
 
-# Train Stage 1 independently
-ae_model = train_stage1(
+ae_model = train_autoencoder(
     X_train=X_train,
     X_val=X_val,
     input_dim=196,
@@ -982,14 +993,17 @@ ae_model = train_stage1(
 )
 
 # Load and run Stage 1 inference
-ae_model = load_stage1(
-    model_path=Path("outputs/models/autoencoder.pt"),
-    input_dim=196
-)
+from src.models.autoencoder import Autoencoder
+import torch
+
+ae_model = Autoencoder(input_dim=196, hidden_dim=256, latent_dim=64)
+ae_model.load_state_dict(torch.load(Path("outputs/models/autoencoder.pt"), map_location="cpu"))
 reconstruction_errors = infer_stage1(ae_model, X_test)
 
 # Train Stage 2 independently
-clf_model = train_stage2(
+from src.training.train_classifier import train_classifier
+
+clf_model = train_classifier(
     X_train=X_anomalous,
     y_train=y_anomalous,
     X_val=X_val_anomalous,

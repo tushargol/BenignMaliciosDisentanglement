@@ -81,7 +81,7 @@ def cross_validate_autoencoder(
         model.eval()
         with torch.no_grad():
             X_val_tensor = torch.from_numpy(X_val_fold).float().to(device)
-            reconstructed = model(X_val_tensor)
+            reconstructed, _ = model(X_val_tensor)
             reconstruction_error = torch.mean((X_val_tensor - reconstructed) ** 2, dim=1).cpu().numpy()
         
         results["fold"].append(fold + 1)

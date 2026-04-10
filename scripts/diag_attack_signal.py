@@ -2,8 +2,10 @@
 import pickle
 import numpy as np
 from src.evaluation.evaluate_pipeline import _max_attack_context_signal
+from src.config import Paths
 
-p = pickle.load(open("outputs/prepared.pkl", "rb"))
+paths = Paths.auto()
+p = pickle.load(open(paths.outputs_dir / "prepared.pkl", "rb"))
 wts = p.windows_test
 yt = p.y_test
 names = p.feature_channel_names

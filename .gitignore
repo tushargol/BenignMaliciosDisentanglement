@@ -131,10 +131,8 @@ data/02-Semiurban/
 data/
 paper.pdf
 
-# Project documentation (exclude from git)
+# Don't exclude all markdown files — only specific ones
 capstone_project_details.md
-*.md
-!README.md
 
 # Keep structure but ignore large datasets
 # 02-Semiurban/*.gz

@@ -37,6 +37,12 @@ def train_autoencoder(
         shuffle=False,
     )
 
+    # Early stopping setup
+    best_val_loss = float('inf')
+    patience = 5
+    patience_counter = 0
+    best_model_state = None
+
     for epoch in range(1, epochs + 1):
         model.train()
         tr = 0.0
@@ -61,6 +67,20 @@ def train_autoencoder(
         tr /= max(1, len(train_loader.dataset))
         va /= max(1, len(val_loader.dataset))
         print(f"[AE] epoch={epoch:03d} train={tr:.5f} val={va:.5f}")
+
+        # Early stopping logic
+        if va < best_val_loss:
+            best_val_loss = va
+            patience_counter = 0
+            best_model_state = model.state_dict().copy()
+        else:
+            patience_counter += 1
+            if patience_counter >= patience:
+                print(f"  Early stopping at epoch {epoch}")
+                # Restore best model weights
+                if best_model_state is not None:
+                    model.load_state_dict(best_model_state)
+                break
 
     return model
 

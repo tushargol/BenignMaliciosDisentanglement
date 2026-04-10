@@ -88,9 +88,19 @@ def evaluate_two_stage(
     """
     Run two-stage pipeline on test set.
     Returns: y_true (0/1/2), y_anomaly (0/1), y_malicious_score (prob for anomalies).
+    
+    If clf_eval_indices are set in PreparedData, uses only those indices for evaluation
+    to prevent data leakage from classifier training.
     """
-    X = prepared.X_test
-    y_true = prepared.y_test
+    # Use eval-test split if available to prevent data leakage
+    if prepared.clf_eval_indices is not None:
+        X = prepared.X_test[prepared.clf_eval_indices]
+        y_true = prepared.y_test[prepared.clf_eval_indices]
+        windows = [prepared.windows_test[i] for i in prepared.clf_eval_indices]
+    else:
+        X = prepared.X_test
+        y_true = prepared.y_test
+        windows = prepared.windows_test
 
     ae_scores = _anomaly_scores_ae(ae_model, X, device)
     ae_thr = np.percentile(ae_scores, ae_threshold_percentile)
@@ -114,7 +124,6 @@ def evaluate_two_stage(
     # Rule rescue: AE may miss attacks that are sparse in aggregate stats but have explicit
     # arp-spoof / industroyer / start-attack / set-point-map events in raw notifications.
     if attack_context_rescue and clf_model is not None and prepared.feature_channel_names:
-        windows = prepared.windows_test
         for i in range(len(X)):
             if y_pred_3class[i] != 0:
                 continue
@@ -133,7 +142,7 @@ def evaluate_two_stage(
             if name not in names:
                 continue
             j = names.index(name)
-            for i, w in enumerate(prepared.windows_test):
+            for i, w in enumerate(windows):
                 if y_pred_3class[i] != 1:
                     continue
                 if float(np.max(w.features[:, j])) <= 0:
@@ -166,10 +175,19 @@ def run_evaluation(
 ) -> EvalResult:
     """
     Full evaluation: overall, per-class, malicious-specific, per-attack-type.
+    
+    If clf_eval_indices are set in PreparedData, uses only those indices for evaluation
+    to prevent data leakage from classifier training.
     """
-    X = prepared.X_test
-    y_true = prepared.y_test
-    windows = windows_test or prepared.windows_test
+    # Use eval-test split if available to prevent data leakage
+    if prepared.clf_eval_indices is not None:
+        X = prepared.X_test[prepared.clf_eval_indices]
+        y_true = prepared.y_test[prepared.clf_eval_indices]
+        windows = [prepared.windows_test[i] for i in prepared.clf_eval_indices]
+    else:
+        X = prepared.X_test
+        y_true = prepared.y_test
+        windows = windows_test or prepared.windows_test
     attack_families = [w.attack_family for w in windows]
 
     overall = {}

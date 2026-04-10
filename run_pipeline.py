@@ -162,8 +162,23 @@ def main() -> None:
         print("[Train Classifier] Preparing anomaly subset...")
         # Use test set anomaly windows for classifier (train has only benign)
         anom_mask = prep.y_test >= 1
-        X_anom = prep.X_test[anom_mask]
-        y_anom = (prep.y_test[anom_mask] == 2).astype(np.float32)
+        anom_indices = np.where(anom_mask)[0]
+        
+        # Split anomalous test windows into classifier-train (50%) and eval-test (50%)
+        # This prevents data leakage by ensuring classifier doesn't see eval-test data
+        clf_train_idx, clf_eval_idx = train_test_split(
+            anom_indices,
+            test_size=0.5,
+            random_state=args.seed,
+            stratify=prep.y_test[anom_mask] if len(np.unique(prep.y_test[anom_mask])) > 1 else None,
+        )
+        
+        # Store split indices in PreparedData for later use in evaluation
+        prep.clf_train_indices = clf_train_idx
+        prep.clf_eval_indices = clf_eval_idx
+        
+        X_anom = prep.X_test[clf_train_idx]
+        y_anom = (prep.y_test[clf_train_idx] == 2).astype(np.float32)
 
         # Per-sample weights: emphasize hard attack families for positives
         # Map anomaly indices back to window metadata.
@@ -173,13 +188,13 @@ def main() -> None:
         attack_fams = np.array([w.attack_family for w in prep.windows_test])
         weights_anom = np.ones_like(y_anom, dtype=np.float32)
         for fam, w in family_weight_cfg.items():
-            fam_mask = (y_anom == 1.0) & (attack_fams[anom_mask] == fam)
+            fam_mask = (y_anom == 1.0) & (attack_fams[clf_train_idx] == fam)
             weights_anom[fam_mask] = float(w)
 
         # Optional inverse-frequency boosting for malicious families
         if bool(clf_cfg.get("inverse_freq_boost", False)):
             max_w = float(clf_cfg.get("max_inverse_freq_weight", 4.0))
-            fams = attack_fams[anom_mask]
+            fams = attack_fams[clf_train_idx]
             mal_fams = fams[y_anom == 1.0]
             if mal_fams.size > 0:
                 uniq, cnt = np.unique(mal_fams, return_counts=True)
