@@ -452,9 +452,11 @@ def main() -> None:
                         print("  SHAP skipped:", shap_result.get("error"))
             
             # Generate all visualizations
+            # Use y_true from eval-test split to match y_pred/y_score sample count
+            y_true_eval = prep.y_test[prep.clf_eval_indices] if hasattr(prep, 'clf_eval_indices') and prep.clf_eval_indices is not None else prep.y_test
             viz_plots = generate_evaluation_visualizations(
-                result, prep, prep.y_test, y_pred, y_score, shap_result, paths.outputs_dir
-            )
+                result, prep, y_true_eval, y_pred, y_score, shap_result, paths.outputs_dir
+        )
 
 
 if __name__ == "__main__":

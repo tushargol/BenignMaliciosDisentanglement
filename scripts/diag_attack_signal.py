@@ -1,6 +1,12 @@
 """Quick diagnostic: attack-context signal strength per family."""
+import os
+import sys
 import pickle
 import numpy as np
+
+# Add project root to path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from src.evaluation.evaluate_pipeline import _max_attack_context_signal
 from src.config import Paths
 
