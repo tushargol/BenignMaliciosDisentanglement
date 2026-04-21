@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Power Grid IDS — Two-Stage Detection Demo</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #ffffff;
+      --bg-secondary: #f5f5f3;
+      --bg-tertiary: #eeede8;
+      --text: #1a1a18;
+      --text-secondary: #6b6b67;
+      --border: rgba(0,0,0,0.12);
+      --border-strong: rgba(0,0,0,0.25);
+      --blue-light: #E6F1FB;
+      --blue-mid: #185FA5;
+      --blue-dark: #0C447C;
+      --green-light: #EAF3DE;
+      --green-mid: #3B6D11;
+      --green-dark: #27500A;
+      --amber-light: #FAEEDA;
+      --amber-mid: #854F0B;
+      --amber-dark: #633806;
+      --red-light: #FCEBEB;
+      --red-mid: #A32D2D;
+      --red-dark: #791F1F;
+      --orange-mid: #BA7517;
+      --radius-sm: 6px;
+      --radius-md: 8px;
+      --radius-lg: 12px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #1c1c1a;
+        --bg-secondary: #252522;
+        --bg-tertiary: #2e2e2b;
+        --text: #f0efe8;
+        --text-secondary: #9a9a94;
+        --border: rgba(255,255,255,0.1);
+        --border-strong: rgba(255,255,255,0.22);
+        --blue-light: #0c2f52;
+        --blue-mid: #5ba3e0;
+        --blue-dark: #a8d0f5;
+        --green-light: #1a2e0d;
+        --green-mid: #7aba42;
+        --green-dark: #b8e083;
+        --amber-light: #2e1f06;
+        --amber-mid: #e09b2f;
+        --amber-dark: #f5cc80;
+        --red-light: #2e0d0d;
+        --red-mid: #e05555;
+        --red-dark: #f5a0a0;
+        --orange-mid: #e0a030;
+      }
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      background: var(--bg-tertiary);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+
+    .page-wrap {
+      max-width: 860px;
+      margin: 0 auto;
+    }
+
+    /* ── header ── */
+    .page-header {
+      margin-bottom: 2rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 0.5px solid var(--border);
+    }
+    .page-header h1 {
+      font-size: 22px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+    .page-header p {
+      font-size: 14px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      background: var(--blue-light);
+      color: var(--blue-dark);
+      border-radius: var(--radius-sm);
+      font-size: 11px;
+      font-weight: 500;
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+
+    /* ── card ── */
+    .card {
+      background: var(--bg);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1.25rem;
+      margin-bottom: 1rem;
+    }
+    .card-title {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      margin-bottom: 0.875rem;
+    }
+
+    /* ── scenario selector ── */
+    .scenario-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+      gap: 8px;
+      margin-bottom: 0;
+    }
+    .scenario-btn {
+      background: var(--bg);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 12px;
+      cursor: pointer;
+      text-align: left;
+      transition: border-color 0.15s, background 0.15s;
+      width: 100%;
+    }
+    .scenario-btn:hover { border-color: var(--border-strong); background: var(--bg-secondary); }
+    .scenario-btn.active { border: 1.5px solid var(--blue-mid); background: var(--blue-light); }
+    .scenario-btn.active .sn-label { color: var(--blue-dark); }
+    .scenario-btn.active .sn-type { color: var(--blue-mid); }
+    .sn-icon { font-size: 18px; margin-bottom: 6px; display: block; }
+    .sn-label { font-size: 13px; font-weight: 500; color: var(--text); display: block; margin-bottom: 2px; }
+    .sn-type { font-size: 11px; color: var(--text-secondary); display: block; }
+
+    /* ── controls ── */
+    .controls-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 1rem;
+    }
+    .run-btn {
+      padding: 9px 20px;
+      background: var(--bg);
+      border: 0.5px solid var(--border-strong);
+      border-radius: var(--radius-md);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .run-btn:hover { background: var(--bg-secondary); }
+    .run-btn:active { transform: scale(0.98); }
+    .run-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .threshold-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+    .threshold-group label { white-space: nowrap; }
+    .threshold-group input[type=range] {
+      width: 100px;
+      accent-color: var(--blue-mid);
+    }
+    .threshold-group span {
+      font-weight: 500;
+      color: var(--text);
+      min-width: 36px;
+      font-size: 13px;
+    }
+
+    /* ── progress bar ── */
+    .progress-wrap {
+      height: 3px;
+      background: var(--bg-secondary);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-bottom: 1rem;
+    }
+    .progress-fill {
+      height: 100%;
+      background: var(--blue-mid);
+      border-radius: 2px;
+      transition: width 0.35s ease;
+      width: 0%;
+    }
+
+    /* ── pipeline stages ── */
+    .pipeline-wrap { display: flex; flex-direction: column; gap: 0.75rem; }
+
+    .stage-header {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .stage-num {
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      background: var(--bg-secondary);
+      border: 0.5px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      flex-shrink: 0;
+    }
+    .stage-num.active { background: var(--blue-mid); color: #fff; border-color: var(--blue-mid); }
+
+    .metric-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .metric-box {
+      flex: 1;
+      min-width: 120px;
+      background: var(--bg-secondary);
+      border-radius: var(--radius-md);
+      padding: 10px 14px;
+      transition: background 0.2s, border 0.2s;
+      border: 0.5px solid transparent;
+    }
+    .metric-box.highlight-blue { background: var(--blue-light); border-color: var(--blue-mid); }
+    .metric-box.highlight-green { background: var(--green-light); border-color: var(--green-mid); }
+    .metric-box.highlight-amber { background: var(--amber-light); border-color: var(--orange-mid); }
+    .metric-box.highlight-red { background: var(--red-light); border-color: var(--red-mid); }
+    .mb-label { font-size: 11px; color: var(--text-secondary); margin-bottom: 3px; }
+    .mb-value { font-size: 22px; font-weight: 600; color: var(--text); }
+    .mb-sub { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+
+    .arrow-down {
+      text-align: center;
+      color: var(--text-secondary);
+      font-size: 14px;
+      line-height: 1;
+      margin: 2px 0;
+    }
+
+    /* ── rescue box ── */
+    .rescue-box {
+      background: var(--amber-light);
+      border: 0.5px solid var(--orange-mid);
+      border-radius: var(--radius-md);
+      padding: 10px 14px;
+      display: none;
+    }
+    .rescue-box.visible { display: block; }
+    .rescue-label { font-size: 11px; font-weight: 500; color: var(--amber-mid); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+    .rescue-text { font-size: 13px; color: var(--amber-dark); }
+
+    /* ── verdict ── */
+    .verdict {
+      border-radius: var(--radius-lg);
+      padding: 16px 20px;
+      display: none;
+      align-items: flex-start;
+      gap: 14px;
+    }
+    .verdict.visible { display: flex; }
+    .verdict.v-normal { background: var(--green-light); border: 0.5px solid var(--green-mid); }
+    .verdict.v-benign { background: var(--amber-light); border: 0.5px solid var(--orange-mid); }
+    .verdict.v-malicious { background: var(--red-light); border: 0.5px solid var(--red-mid); }
+    .verdict-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+    .v-normal .verdict-dot { background: var(--green-mid); }
+    .v-benign .verdict-dot { background: var(--amber-mid); }
+    .v-malicious .verdict-dot { background: var(--red-mid); }
+    .verdict-title { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+    .v-normal .verdict-title { color: var(--green-dark); }
+    .v-benign .verdict-title { color: var(--amber-dark); }
+    .v-malicious .verdict-title { color: var(--red-dark); }
+    .verdict-text { font-size: 13px; line-height: 1.5; }
+    .v-normal .verdict-text { color: var(--green-mid); }
+    .v-benign .verdict-text { color: var(--amber-mid); }
+    .v-malicious .verdict-text { color: var(--red-mid); }
+
+    /* ── SHAP bars ── */
+    .shap-row { display: flex; align-items: center; gap: 10px; margin-bottom: 7px; }
+    .shap-name { font-size: 12px; color: var(--text-secondary); width: 36px; flex-shrink: 0; }
+    .shap-bar-bg { flex: 1; height: 7px; background: var(--bg-secondary); border-radius: 4px; overflow: hidden; }
+    .shap-bar-fill { height: 100%; border-radius: 4px; background: var(--blue-mid); transition: width 0.55s ease; }
+    .shap-val { font-size: 12px; color: var(--text-secondary); width: 46px; text-align: right; flex-shrink: 0; }
+
+    /* ── bottom metrics ── */
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+    .summary-card {
+      background: var(--bg-secondary);
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+    }
+    .sc-name { font-size: 11px; color: var(--text-secondary); margin-bottom: 4px; }
+    .sc-val { font-size: 22px; font-weight: 600; color: var(--text); }
+
+    /* ── comparison table ── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    th {
+      text-align: left;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 6px 8px;
+      border-bottom: 0.5px solid var(--border);
+    }
+    td {
+      padding: 8px;
+      border-bottom: 0.5px solid var(--border);
+      color: var(--text);
+    }
+    tr:last-child td { border-bottom: none; }
+    tr.highlight-row td { font-weight: 600; background: var(--blue-light); color: var(--blue-dark); }
+    .tag {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: var(--radius-sm);
+      font-size: 11px;
+      font-weight: 500;
+    }
+    .tag-good { background: var(--green-light); color: var(--green-dark); }
+    .tag-warn { background: var(--amber-light); color: var(--amber-dark); }
+    .tag-bad  { background: var(--red-light);   color: var(--red-dark); }
+
+    .divider { border: none; border-top: 0.5px solid var(--border); margin: 0; }
+
+    /* ── tooltip ── */
+    .info {
+      display: inline-block;
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      border: 0.5px solid var(--border-strong);
+      font-size: 10px;
+      text-align: center;
+      line-height: 14px;
+      color: var(--text-secondary);
+      cursor: default;
+      position: relative;
+    }
+    .info:hover::after {
+      content: attr(data-tip);
+      position: absolute;
+      bottom: 120%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--text);
+      color: var(--bg);
+      font-size: 11px;
+      padding: 5px 8px;
+      border-radius: var(--radius-sm);
+      white-space: nowrap;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    @media (max-width: 600px) {
+      .scenario-grid { grid-template-columns: repeat(2, 1fr); }
+      .summary-grid { grid-template-columns: repeat(2, 1fr); }
+      .metric-row { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+<div class="page-wrap">
+
+  <!-- Header -->
+  <div class="page-header">
+    <h1>Power Grid IDS <span class="badge">Two-Stage Pipeline</span></h1>
+    <p>
+      Interactive demo of the benign vs. malicious anomaly disentanglement system.<br>
+      Select a scenario, adjust thresholds, and run the detection pipeline.
+    </p>
+  </div>
+
+  <!-- Scenario selector -->
+  <div class="card">
+    <p class="card-title">Select scenario</p>
+    <div class="scenario-grid" id="scenario-grid"></div>
+  </div>
+
+  <!-- Threshold controls -->
+  <div class="card">
+    <p class="card-title">Threshold controls
+      <span class="info" data-tip="Adjust thresholds to see how performance changes">?</span>
+    </p>
+    <div class="controls-row">
+      <button class="run-btn" id="run-btn" onclick="runPipeline()">Run detection pipeline</button>
+      <div class="threshold-group">
+        <label>AE threshold</label>
+        <input type="range" id="ae-thresh" min="0.01" max="0.15" step="0.001" value="0.042"
+               oninput="document.getElementById('ae-val').textContent=parseFloat(this.value).toFixed(3)">
+        <span id="ae-val">0.042</span>
+      </div>
+      <div class="threshold-group">
+        <label>CLF threshold</label>
+        <input type="range" id="clf-thresh" min="0.1" max="0.9" step="0.01" value="0.50"
+               oninput="document.getElementById('clf-val').textContent=parseFloat(this.value).toFixed(2)">
+        <span id="clf-val">0.50</span>
+      </div>
+    </div>
+    <div class="progress-wrap"><div class="progress-fill" id="progress-fill"></div></div>
+  </div>
+
+  <!-- Pipeline -->
+  <div class="card">
+    <p class="card-title">Detection pipeline</p>
+    <div class="pipeline-wrap">
+
+      <!-- Feature extraction -->
+      <div>
+        <div class="stage-header">
+          <div class="stage-num" id="num-fe">0</div>
+          Feature extraction
+        </div>
+        <div class="metric-row">
+          <div class="metric-box" id="box-window">
+            <p class="mb-label">Window size</p>
+            <p class="mb-value">90s</p>
+            <p class="mb-sub">stride: 20s</p>
+          </div>
+          <div class="metric-box" id="box-features">
+            <p class="mb-label">Feature vector</p>
+            <p class="mb-value">196-dim</p>
+            <p class="mb-sub">14 stats × 14 channels</p>
+          </div>
+          <div class="metric-box" id="box-channels">
+            <p class="mb-label">Key statistic</p>
+            <p class="mb-value" id="val-burst">—</p>
+            <p class="mb-sub">burst ratio (impulsiveness)</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="arrow-down">↓</div>
+
+      <!-- Stage 1 -->
+      <div>
+        <div class="stage-header">
+          <div class="stage-num" id="num-ae">1</div>
+          Stage 1 — Autoencoder
+          <span class="info" data-tip="Trained on normal + benign only. Cannot reconstruct attacks.">?</span>
+        </div>
+        <div class="metric-row">
+          <div class="metric-box" id="box-error">
+            <p class="mb-label">Reconstruction error</p>
+            <p class="mb-value" id="val-error">—</p>
+            <p class="mb-sub" id="sub-error">threshold: —</p>
+          </div>
+          <div class="metric-box" id="box-anomaly">
+            <p class="mb-label">Anomaly detected</p>
+            <p class="mb-value" id="val-anomaly">—</p>
+            <p class="mb-sub" id="sub-anomaly">error vs threshold</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Rescue -->
+      <div class="rescue-box" id="rescue-box">
+        <p class="rescue-label">Rule-based rescue triggered</p>
+        <p class="rescue-text" id="rescue-text">—</p>
+      </div>
+
+      <div class="arrow-down" id="arrow-2">↓</div>
+
+      <!-- Stage 2 -->
+      <div>
+        <div class="stage-header">
+          <div class="stage-num" id="num-clf">2</div>
+          Stage 2 — Classifier
+          <span class="info" data-tip="Only runs on anomalous windows. Separates benign from malicious.">?</span>
+        </div>
+        <div class="metric-row">
+          <div class="metric-box" id="box-prob">
+            <p class="mb-label">Malicious probability</p>
+            <p class="mb-value" id="val-prob">—</p>
+            <p class="mb-sub" id="sub-prob">threshold: —</p>
+          </div>
+          <div class="metric-box" id="box-verdict-mini">
+            <p class="mb-label">Classification</p>
+            <p class="mb-value" id="val-class">—</p>
+            <p class="mb-sub" id="sub-class">stage 2 output</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="arrow-down">↓</div>
+
+      <!-- Verdict -->
+      <div class="verdict" id="verdict">
+        <div class="verdict-dot"></div>
+        <div>
+          <p class="verdict-title" id="verdict-title">—</p>
+          <p class="verdict-text" id="verdict-text">—</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- SHAP -->
+  <div class="card" id="shap-card" style="display:none">
+    <p class="card-title">SHAP feature importance
+      <span class="info" data-tip="Shows which features drove the malicious classification decision.">?</span>
+    </p>
+    <div id="shap-bars"></div>
+    <p style="font-size:12px;color:var(--text-secondary);margin-top:10px;">
+      Features ordered by mean absolute SHAP value. f13 and f41 are the top two discriminating features across all malicious scenarios.
+    </p>
+  </div>
+
+  <!-- Attack comparison table -->
+  <div class="card">
+    <p class="card-title">Per-attack detection recall</p>
+    <table>
+      <thead>
+        <tr>
+          <th>Attack family</th>
+          <th>Support</th>
+          <th>AE only</th>
+          <th>Two-stage</th>
+          <th>Rescue?</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>drift-off</td>
+          <td>297</td>
+          <td><span class="tag tag-warn">87.9%</span></td>
+          <td><span class="tag tag-good">100.0%</span></td>
+          <td>No</td>
+        </tr>
+        <tr>
+          <td>control-and-freeze</td>
+          <td>145</td>
+          <td><span class="tag tag-warn">91.7%</span></td>
+          <td><span class="tag tag-good">100.0%</span></td>
+          <td>No</td>
+        </tr>
+        <tr>
+          <td>arp-spoof</td>
+          <td>65</td>
+          <td><span class="tag tag-bad">0.0%</span></td>
+          <td><span class="tag tag-good">86.2%</span></td>
+          <td>Yes — interval_n_ctx_arp</td>
+        </tr>
+        <tr>
+          <td>industroyer</td>
+          <td>122</td>
+          <td><span class="tag tag-bad">30.3%</span></td>
+          <td><span class="tag tag-warn">63.9%</span></td>
+          <td>Yes — interval_n_ctx_industroyer</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Overall metrics -->
+  <div class="card">
+    <p class="card-title">Overall system performance — evaluation set (n = 2,156)</p>
+    <div class="summary-grid">
+      <div class="summary-card">
+        <p class="sc-name">Malicious recall</p>
+        <p class="sc-val">91.6%</p>
+      </div>
+      <div class="summary-card">
+        <p class="sc-name">FPR on benign</p>
+        <p class="sc-val">0.0%</p>
+      </div>
+      <div class="summary-card">
+        <p class="sc-name">Malicious precision</p>
+        <p class="sc-val">99.7%</p>
+      </div>
+      <div class="summary-card">
+        <p class="sc-name">Normal F1</p>
+        <p class="sc-val">0.965</p>
+      </div>
+      <div class="summary-card">
+        <p class="sc-name">ROC-AUC</p>
+        <p class="sc-val">0.956</p>
+      </div>
+      <div class="summary-card">
+        <p class="sc-name">PR-AUC</p>
+        <p class="sc-val">0.939</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ablation comparison -->
+  <div class="card">
+    <p class="card-title">Ablation — AE only vs two-stage</p>
+    <table>
+      <thead>
+        <tr>
+          <th>Method</th>
+          <th>Malicious recall</th>
+          <th>FPR normal</th>
+          <th>FPR benign</th>
+          <th>Benign F1</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>AE only</td>
+          <td><span class="tag tag-warn">68.5%</span></td>
+          <td>0.07%</td>
+          <td>0.0%</td>
+          <td><span class="tag tag-bad">0.000</span></td>
+        </tr>
+        <tr class="highlight-row">
+          <td>Two-stage (proposed)</td>
+          <td><span class="tag tag-good">91.6%</span></td>
+          <td>0.14%</td>
+          <td>0.0%</td>
+          <td><span class="tag tag-good">0.689</span></td>
+        </tr>
+      </tbody>
+    </table>
+    <p style="font-size:12px;color:var(--text-secondary);margin-top:10px;">
+      AE only scores 0.000 on benign F1 — it has no concept of a benign category and collapses all anomalies into the malicious class.
+    </p>
+  </div>
+
+</div><!-- /page-wrap -->
+
+<script>
+  const SCENARIOS = [
+    {
+      id: "normal", icon: "○", label: "Normal operation", type: "Normal traffic",
+      error: 0.018, prob: 0.04, verdict: "normal", rescue: false, rescueSignal: 0, burstRatio: "0.31",
+      explanation: "Reconstruction error 0.018 is well below the autoencoder threshold. No anomaly detected. No alert raised.",
+      verdictTitle: "Normal — No alert",
+      shap: [0.0041, 0.0038, 0.0029, 0.0025, 0.0019, 0.0014]
+    },
+    {
+      id: "maintenance", icon: "△", label: "Transformer maintenance", type: "Benign anomaly",
+      error: 0.067, prob: 0.11, verdict: "benign", rescue: false, rescueSignal: 0, burstRatio: "1.24",
+      explanation: "Elevated control-centre event counts and breaker switching detected. Stage 1 flags as anomalous. Stage 2 classifier assigns only 11% malicious probability — consistent with known maintenance pattern. Alert suppressed.",
+      verdictTitle: "Benign anomaly — Alert suppressed",
+      shap: [0.0134, 0.0128, 0.0111, 0.0109, 0.0094, 0.0059]
+    },
+    {
+      id: "separator", icon: "△", label: "Separator movement", type: "Benign anomaly",
+      error: 0.054, prob: 0.08, verdict: "benign", rescue: false, rescueSignal: 0, burstRatio: "0.98",
+      explanation: "Disconnector switching generates a burst of GOOSE messages. Stage 1 detects anomaly. Stage 2 assigns 8% malicious probability — smooth sustained deviation typical of switching operations. Alert suppressed.",
+      verdictTitle: "Benign anomaly — Alert suppressed",
+      shap: [0.0118, 0.0102, 0.0091, 0.0083, 0.0072, 0.0051]
+    },
+    {
+      id: "arpspoof", icon: "◆", label: "ARP spoof attack", type: "Malicious — arp-spoof",
+      error: 0.031, prob: 0.87, verdict: "malicious", rescue: true, rescueSignal: 8, burstRatio: "0.42",
+      explanation: "Reconstruction error near threshold — aggregate signal almost invisible. Rule rescue detects interval_n_ctx_arp = 8. Classifier confirms 87% malicious probability. Alert raised.",
+      verdictTitle: "Malicious attack — Alert raised",
+      rescueText: "interval_n_ctx_arp channel = 8 (non-zero). Window forced to classifier regardless of AE score.",
+      shap: [0.0185, 0.0162, 0.0134, 0.0120, 0.0098, 0.0071]
+    },
+    {
+      id: "driftoff", icon: "◆", label: "Drift-off attack", type: "Malicious — drift-off",
+      error: 0.194, prob: 0.96, verdict: "malicious", rescue: false, rescueSignal: 0, burstRatio: "3.87",
+      explanation: "High reconstruction error from sustained sensor manipulation. Slope and autocorrelation features strongly deviate. Classifier assigns 96% malicious probability. Alert raised.",
+      verdictTitle: "Malicious attack — Alert raised",
+      shap: [0.0201, 0.0178, 0.0155, 0.0143, 0.0112, 0.0088]
+    },
+    {
+      id: "controlfreeze", icon: "◆", label: "Control-and-freeze", type: "Malicious — control-and-freeze",
+      error: 0.156, prob: 0.99, verdict: "malicious", rescue: false, rescueSignal: 0, burstRatio: "4.21",
+      explanation: "Burst ratio of control output channels extremely elevated. Classifier assigns 99% malicious probability. Perfect recall attack — 100% detection rate in evaluation set. Alert raised.",
+      verdictTitle: "Malicious attack — Alert raised",
+      shap: [0.0210, 0.0195, 0.0167, 0.0151, 0.0130, 0.0094]
+    },
+    {
+      id: "industroyer", icon: "◇", label: "Industroyer attack", type: "Malicious — industroyer",
+      error: 0.038, prob: 0.72, verdict: "malicious", rescue: true, rescueSignal: 5, burstRatio: "0.61",
+      explanation: "Low aggregate signal — Industroyer replays valid IEC 61850 commands, mimicking legitimate switching. Rule rescue detects interval_n_ctx_industroyer = 5. Classifier confirms 72% malicious probability. Alert raised.",
+      verdictTitle: "Malicious attack — Alert raised",
+      rescueText: "interval_n_ctx_industroyer channel = 5 (non-zero). 36.1% of Industroyer windows have zero signal — fundamental detection boundary.",
+      shap: [0.0143, 0.0131, 0.0118, 0.0097, 0.0082, 0.0061]
+    }
+  ];
+
+  const SHAP_FEATURES = ["f13", "f41", "f83", "f97", "f55", "f69"];
+
+  let selectedIdx = null;
+  let running = false;
+
+  function buildScenarios() {
+    const grid = document.getElementById("scenario-grid");
+    SCENARIOS.forEach((s, i) => {
+      const btn = document.createElement("button");
+      btn.className = "scenario-btn";
+      btn.id = "sc-" + s.id;
+      btn.onclick = () => selectScenario(i);
+      btn.innerHTML = `
+        <span class="sn-icon">${s.icon}</span>
+        <span class="sn-label">${s.label}</span>
+        <span class="sn-type">${s.type}</span>
+      `;
+      grid.appendChild(btn);
+    });
+  }
+
+  function selectScenario(idx) {
+    if (running) return;
+    selectedIdx = idx;
+    document.querySelectorAll(".scenario-btn").forEach(b => b.classList.remove("active"));
+    document.getElementById("sc-" + SCENARIOS[idx].id).classList.add("active");
+    resetPipeline();
+  }
+
+  function resetPipeline() {
+    const ids = ["val-error","val-anomaly","val-prob","val-class","val-burst"];
+    ids.forEach(id => { const el = document.getElementById(id); if (el) el.textContent = "—"; });
+
+    ["box-error","box-anomaly","box-prob","box-verdict-mini"].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.className = "metric-box";
+    });
+
+    document.getElementById("rescue-box").classList.remove("visible");
+    document.getElementById("shap-card").style.display = "none";
+    document.getElementById("verdict").className = "verdict";
+    document.getElementById("progress-fill").style.width = "0%";
+
+    document.getElementById("sub-error").textContent = "threshold: " + parseFloat(document.getElementById("ae-thresh").value).toFixed(3);
+    document.getElementById("sub-prob").textContent = "threshold: " + parseFloat(document.getElementById("clf-thresh").value).toFixed(2);
+
+    ["num-fe","num-ae","num-clf"].forEach(id => {
+      document.getElementById(id).classList.remove("active");
+    });
+  }
+
+  function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+  async function runPipeline() {
+    if (selectedIdx === null || running) return;
+    running = true;
+    const s = SCENARIOS[selectedIdx];
+    const aeThresh = parseFloat(document.getElementById("ae-thresh").value);
+    const clfThresh = parseFloat(document.getElementById("clf-thresh").value);
+    const btn = document.getElementById("run-btn");
+    btn.disabled = true;
+    btn.textContent = "Running...";
+
+    resetPipeline();
+    await sleep(100);
+
+    document.getElementById("progress-fill").style.width = "10%";
+    document.getElementById("num-fe").classList.add("active");
+    document.getElementById("val-burst").textContent = s.burstRatio;
+    document.getElementById("box-channels").className = "metric-box highlight-blue";
+    await sleep(500);
+
+    document.getElementById("progress-fill").style.width = "30%";
+    document.getElementById("num-ae").classList.add("active");
+    document.getElementById("val-error").textContent = s.error.toFixed(3);
+    document.getElementById("sub-error").textContent = "threshold: " + aeThresh.toFixed(3);
+    const isAnomaly = s.error >= aeThresh || (s.rescue && s.rescueSignal > 0);
+    const aeOver = s.error >= aeThresh;
+    document.getElementById("box-error").className = "metric-box " + (aeOver ? "highlight-blue" : "highlight-green");
+    await sleep(500);
+
+    document.getElementById("progress-fill").style.width = "50%";
+    document.getElementById("val-anomaly").textContent = isAnomaly ? "Yes" : "No";
+    document.getElementById("sub-anomaly").textContent = aeOver
+      ? s.error.toFixed(3) + " ≥ " + aeThresh.toFixed(3)
+      : s.error.toFixed(3) + " < " + aeThresh.toFixed(3);
+    document.getElementById("box-anomaly").className = "metric-box " + (isAnomaly ? "highlight-blue" : "highlight-green");
+    await sleep(500);
+
+    if (s.rescue && s.rescueSignal > 0) {
+      const rbox = document.getElementById("rescue-box");
+      rbox.classList.add("visible");
+      document.getElementById("rescue-text").textContent = s.rescueText || ("Attack-context signal = " + s.rescueSignal + ". Window promoted to classifier.");
+      await sleep(600);
+    }
+
+    document.getElementById("progress-fill").style.width = "70%";
+    document.getElementById("num-clf").classList.add("active");
+
+    if (isAnomaly) {
+      document.getElementById("val-prob").textContent = (s.prob * 100).toFixed(0) + "%";
+      document.getElementById("sub-prob").textContent = (s.prob >= clfThresh ? "above" : "below") + " threshold " + clfThresh.toFixed(2);
+      document.getElementById("box-prob").className = "metric-box " + (s.prob >= clfThresh ? "highlight-red" : "highlight-green");
+      await sleep(450);
+
+      const effectiveVerdict = s.prob >= clfThresh ? s.verdict : (s.verdict === "malicious" ? "benign" : s.verdict);
+      const labelMap = { normal: "Normal", benign: "Benign anomaly", malicious: "Malicious attack" };
+      document.getElementById("val-class").textContent = labelMap[effectiveVerdict];
+      document.getElementById("box-verdict-mini").className = "metric-box " + (effectiveVerdict === "malicious" ? "highlight-red" : effectiveVerdict === "benign" ? "highlight-amber" : "highlight-green");
+    } else {
+      document.getElementById("val-prob").textContent = "—";
+      document.getElementById("val-class").textContent = "Normal";
+      document.getElementById("box-verdict-mini").className = "metric-box highlight-green";
+    }
+
+    await sleep(450);
+    document.getElementById("progress-fill").style.width = "90%";
+
+    const finalVerdict = !isAnomaly ? "normal" : (s.prob >= clfThresh ? s.verdict : "benign");
+    const vbox = document.getElementById("verdict");
+    vbox.className = "verdict visible v-" + finalVerdict;
+    document.getElementById("verdict-title").textContent = s.verdictTitle;
+    document.getElementById("verdict-text").textContent = s.explanation;
+    await sleep(300);
+
+    if (isAnomaly) {
+      const maxShap = Math.max(...s.shap);
+      const barsDiv = document.getElementById("shap-bars");
+      barsDiv.innerHTML = "";
+      SHAP_FEATURES.forEach((f, i) => {
+        const pct = Math.round((s.shap[i] / maxShap) * 100);
+        const colors = ["#185FA5","#185FA5","#378ADD","#378ADD","#85B7EB","#85B7EB"];
+        barsDiv.innerHTML += `
+          <div class="shap-row">
+            <span class="shap-name">${f}</span>
+            <div class="shap-bar-bg">
+              <div class="shap-bar-fill" id="sf-${i}" style="width:0%;background:${colors[i]}"></div>
+            </div>
+            <span class="shap-val">${s.shap[i].toFixed(4)}</span>
+          </div>`;
+      });
+      document.getElementById("shap-card").style.display = "block";
+      await sleep(80);
+      SHAP_FEATURES.forEach((_, i) => {
+        const pct = Math.round((s.shap[i] / maxShap) * 100);
+        const el = document.getElementById("sf-" + i);
+        if (el) el.style.width = pct + "%";
+      });
+    }
+
+    document.getElementById("progress-fill").style.width = "100%";
+    btn.disabled = false;
+    btn.textContent = "Run detection pipeline";
+    running = false;
+  }
+
+  buildScenarios();
+</script>
+</body>
+</html>
